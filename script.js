@@ -170,25 +170,18 @@ function updateTodayUI(weatherData) {
 
     var todayDateFormattedAsString = weatherData.date.format('DD/MM/YYYY');
 
-
-    var heading = document.createElement('h2');
-    heading.classList.add('mb-3');
-    heading.classList.add('fw-bold');
-    heading.textContent = `${weatherData.location} (${todayDateFormattedAsString})`;
+    var headingElement = document.createElement('h2');
+    headingElement.classList.add('mb-3', 'fw-bold');
+    headingElement.textContent = `${weatherData.location} (${todayDateFormattedAsString})`;
 
     for (var i = 0; i < weatherData.weatherIcons.length; ++i) {
         var iconCode = weatherData.weatherIcons[i];
-        var weatherIconUrl = `${weatherApiImagePrefix}${iconCode}@2x.png`
+        var weatherIcon = createWeatherIcon(iconCode);
 
-        var weatherIcon = document.createElement('img');
-        weatherIcon.setAttribute('src', weatherIconUrl);
-        weatherIcon.setAttribute('height', '50px');
-        weatherIcon.setAttribute('alt', 'weather icon');
-
-        heading.append(weatherIcon);
+        headingElement.append(weatherIcon);
     }
 
-    todaySection.appendChild(heading);
+    todaySection.appendChild(headingElement);
 
     var temperatureString = `Temp: ${weatherData.temperature} °C`;
     var windString = `Wind: ${weatherData.wind} km/h`;
@@ -199,18 +192,82 @@ function updateTodayUI(weatherData) {
     })
 }
 
-function createAndAppendWeatherDetail(contents, destination) {
-    var weatherDetail = document.createElement('p');
-    weatherDetail.classList.add('weather-detail');
-    weatherDetail.textContent = contents;
+function createAndAppendWeatherDetail(contents, destination, additionalClasses) {
+    var weatherDetailElement = document.createElement('p');
+    weatherDetailElement.classList.add('weather-detail');
 
-    destination.appendChild(weatherDetail);
+    if (additionalClasses !== undefined) {
+        weatherDetailElement.classList.add(...additionalClasses);
+    }
+    weatherDetailElement.textContent = contents;
+
+    destination.appendChild(weatherDetailElement);
+}
+
+function createWeatherIcon(code) {
+    var weatherIconUrl = `${weatherApiImagePrefix}${code}@2x.png`;
+
+    var weatherIcon = document.createElement('img');
+    weatherIcon.setAttribute('src', weatherIconUrl);
+    weatherIcon.setAttribute('height', '50px');
+    weatherIcon.setAttribute('alt', 'weather icon');
+
+    return weatherIcon;
 }
 
 function updateForecastUI(forecastData) {
     var forecastSection = document.getElementById('forecast');
 
     clearElement(forecastSection);
+
+    var forecastHeading = document.createElement('h3');
+    forecastHeading.classList.add('fw-bold', 'fs-4');
+    forecastHeading.textContent = '5-Day Forecast:';
+    forecastSection.appendChild(forecastHeading);
+
+    var fluidContainer = document.createElement('div');
+    fluidContainer.classList.add('container-fluid');
+    forecastSection.appendChild(fluidContainer);
+
+    var containerRow = document.createElement('div');
+    containerRow.classList.add('row');
+    fluidContainer.appendChild(containerRow);
+
+    for (var i = 0; i < forecastData.length && i < 5; ++i) {
+        var forecastDateFormattedAsString = forecastData[i].time.format('DD/MM/YYYY')
+
+        var flexContainer = document.createElement('div');
+        flexContainer.classList.add('col-md', 'd-flex', 'align-items-stretch', 'ps-0');
+
+        containerRow.appendChild(flexContainer);
+
+        var forecastCardElement = document.createElement('div');
+        forecastCardElement.classList.add('forecast-card', 'w-100', 'bg-primary', 'forecast-card', 'p-2', 'pe-0', 'mb-2');
+        flexContainer.appendChild(forecastCardElement);
+
+        var forecastCardDateElement = document.createElement('div');
+        forecastCardDateElement.classList.add('fw-bold');
+        forecastCardDateElement.textContent = forecastDateFormattedAsString;
+        forecastCardElement.appendChild(forecastCardDateElement);
+
+        var iconContainer = document.createElement('div');
+        forecastCardElement.appendChild(iconContainer)
+
+        for (var j = 0; j < forecastData[i].weatherIcons.length; ++j) {
+            var iconCode = forecastData[i].weatherIcons[j];
+            var weatherIcon = createWeatherIcon(iconCode);
+
+            iconContainer.appendChild(weatherIcon);
+        }
+
+        var temperatureString = `Temp: ${forecastData[i].temperature} °C`;
+        var windString = `Wind: ${forecastData[i].wind} km/h`;
+        var humidityString = `Humidity: ${forecastData[i].humidity}%`;
+
+        [temperatureString, windString, humidityString].forEach(contents => {
+            createAndAppendWeatherDetail(contents, forecastCardElement, ['mb-2']);
+        })
+    }
 }
 
 function clearElement(element) {
@@ -224,6 +281,6 @@ function clearElement(element) {
 
     getDailyForecastAtHour(fiveDayForecast, 12);
 
-    searchForWeatherByLocation('Adelaide')
+    searchForWeatherByLocation('arizona')
 })();
 
