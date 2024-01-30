@@ -14,6 +14,44 @@ var timezoneOffset = d.getTimezoneOffset();
 
 var apiError = '';
 
+var searchForm = document.getElementById('search-form');
+
+if (searchForm.attachEvent) {
+    searchForm.attachEvent('submit', processSearch)
+} else {
+    searchForm.addEventListener('submit', processSearch);
+}
+
+function processSearch(event) {
+    event.preventDefault();
+
+    var searchInput = document.getElementById('search-input');
+    var searchTerm = searchInput.value;
+
+    if (searchTerm === '') {
+        searchTerm = searchInput.getAttribute('placeholder');
+    }
+
+    searchForWeatherByLocation(searchTerm);
+}
+
+function putApplicationInLoadingState() {
+    var todaySection = document.getElementById('today');
+    var forecastSection = document.getElementById('forecast');
+
+    clearElement(todaySection);
+    clearElement(forecastSection);
+
+    var spinnerContainer = document.createElement('div');
+    spinnerContainer.classList.add('d-flex', 'justify-content-center', 'my-3');
+    todaySection.appendChild(spinnerContainer);
+
+    var spinnerBorder = document.createElement('div');
+    spinnerBorder.classList.add('spinner-border', 'text-secondary');
+    spinnerBorder.setAttribute('role', 'status');
+    spinnerContainer.appendChild(spinnerBorder);
+}
+
 async function getLatAndLonByLocationName(location) {
     // instantiate return object
     var coordinates = {};
@@ -49,7 +87,6 @@ async function getLatAndLonByLocationName(location) {
     coordinates.lon = lon;
 
     return coordinates;
-
 }
 
 async function getCurrentWeatherData(coordinates) {
@@ -138,23 +175,28 @@ function getDailyForecastAtHour(forecast, hour) {
 async function searchForWeatherByLocation(location) {
     apiError = '';
 
+    putApplicationInLoadingState();
+
+    // limits load on API during development and also allows user to view loading functionality - not suitable for production, but more for demonstrative purposes
+    await sleep(3000);
+
+    var locationCoordinates = await getLatAndLonByLocationName(location);
+
     try {
-        var locationCoordinates = await getLatAndLonByLocationName(location);
-
-        getCurrentWeatherData(locationCoordinates).then((weatherData) => {
-            updateTodayUI(weatherData);
-        });
-
-        get5DayForecast(locationCoordinates).then((forecastData) => {
-            var forecastSummary = getDailyForecastAtHour(forecastData, hourForDailyTemperature);
-            updateForecastUI(forecastSummary);
-        });
-
+        var [weatherData, forecastData] = await Promise.all([
+            getCurrentWeatherData(locationCoordinates), get5DayForecast(locationCoordinates)]);
     } catch (error) {
-
+        if (apiError !== '') {
+            alert(apiError);
+        } else {
+            alert(error);
+        }
     }
 
-    console.log(apiError);
+    var forecastSummary = getDailyForecastAtHour(forecastData, hourForDailyTemperature);
+
+    updateTodayUI(weatherData);
+    updateForecastUI(forecastSummary);
 }
 
 function updateApiError(newError) {
@@ -275,12 +317,9 @@ function clearElement(element) {
 }
 
 (async () => {
-    var londonCoordinates = await getLatAndLonByLocationName('London');
-    var currentWeather = await getCurrentWeatherData(londonCoordinates);
-    var fiveDayForecast = await get5DayForecast(londonCoordinates);
-
-    getDailyForecastAtHour(fiveDayForecast, 12);
-
-    searchForWeatherByLocation('arizona')
+    searchForWeatherByLocation('arizona');
 })();
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
