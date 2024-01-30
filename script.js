@@ -7,12 +7,18 @@ var forecastWeatherApiURLPrefix = 'https://api.openweathermap.org/data/2.5/forec
 
 var weatherApiImagePrefix = 'https://openweathermap.org/img/wn/';
 
-var hourForDailyTemperature = 12;
+var todaySection = document.getElementById('today');
+var forecastSection = document.getElementById('forecast');
+var searchButton = document.getElementById('search-button');
+
+var hourForDailyTemperature = 12; // the temperature at noon is used for daily temperature
 
 var d = new Date()
 var timezoneOffset = d.getTimezoneOffset();
 
-var apiError = '';
+var apiError = ''; // non empty string when an api error occurs - globally scoped because it is accessed in numerous closures
+var loading = false; // application state to indicate if an api request is being handled
+var sleepTime = 2000; // configures how many milliseconds to sleep for when function is called
 
 var searchForm = document.getElementById('search-form');
 
@@ -25,6 +31,10 @@ if (searchForm.attachEvent) {
 function processSearch(event) {
     event.preventDefault();
 
+    if (loading) {
+        return;
+    }
+
     var searchInput = document.getElementById('search-input');
     var searchTerm = searchInput.value;
 
@@ -36,8 +46,9 @@ function processSearch(event) {
 }
 
 function putApplicationInLoadingState() {
-    var todaySection = document.getElementById('today');
-    var forecastSection = document.getElementById('forecast');
+    loading = true;
+
+    searchButton.disabled = true;
 
     clearElement(todaySection);
     clearElement(forecastSection);
@@ -173,30 +184,54 @@ function getDailyForecastAtHour(forecast, hour) {
 }
 
 async function searchForWeatherByLocation(location) {
+    if (loading) {
+        return;
+    }
+
     apiError = '';
 
     putApplicationInLoadingState();
 
     // limits load on API during development and also allows user to view loading functionality - not suitable for production, but more for demonstrative purposes
-    await sleep(3000);
-
-    var locationCoordinates = await getLatAndLonByLocationName(location);
+    await sleep(sleepTime);
 
     try {
+        var locationCoordinates = await getLatAndLonByLocationName(location);
+
         var [weatherData, forecastData] = await Promise.all([
             getCurrentWeatherData(locationCoordinates), get5DayForecast(locationCoordinates)]);
+
+        var forecastSummary = getDailyForecastAtHour(forecastData, hourForDailyTemperature);
+
+        updateTodayUI(weatherData);
+        updateForecastUI(forecastSummary);
     } catch (error) {
         if (apiError !== '') {
             alert(apiError);
         } else {
             alert(error);
         }
+
+        resetUI();
     }
 
-    var forecastSummary = getDailyForecastAtHour(forecastData, hourForDailyTemperature);
+    searchButton.disabled = false;
+    loading = false;
+}
 
-    updateTodayUI(weatherData);
-    updateForecastUI(forecastSummary);
+function resetUI() {
+    clearElement(todaySection);
+    clearElement(forecastSection);
+
+    var headingElement = document.createElement('h3');
+    headingElement.classList.add('p-3', 'text-center')
+    headingElement.textContent = 'Search for weather forecasts '
+    todaySection.append(headingElement);
+
+    var subHeadingElement = document.createElement('span');
+    subHeadingElement.classList.add('text-primary');
+    subHeadingElement.textContent = 'all over the world';
+    headingElement.appendChild(subHeadingElement);
 }
 
 function updateApiError(newError) {
@@ -206,8 +241,6 @@ function updateApiError(newError) {
 }
 
 function updateTodayUI(weatherData) {
-    var todaySection = document.getElementById('today');
-
     clearElement(todaySection);
 
     var todayDateFormattedAsString = weatherData.date.format('DD/MM/YYYY');
@@ -258,8 +291,6 @@ function createWeatherIcon(code) {
 }
 
 function updateForecastUI(forecastData) {
-    var forecastSection = document.getElementById('forecast');
-
     clearElement(forecastSection);
 
     var forecastHeading = document.createElement('h3');
