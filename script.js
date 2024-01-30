@@ -5,7 +5,7 @@ var geoApiURLPrefix = 'http://api.openweathermap.org/geo/1.0/direct?';
 var currentWeatherApiURLPrefix = 'https://api.openweathermap.org/data/2.5/weather?';
 var forecastWeatherApiURLPrefix = 'https://api.openweathermap.org/data/2.5/forecast?';
 
-var weatherApiImagePrefix = 'https://openweathermap.org/img/wn/'
+var weatherApiImagePrefix = 'https://openweathermap.org/img/wn/';
 
 var hourForDailyTemperature = 12;
 
