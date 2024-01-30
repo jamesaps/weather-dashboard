@@ -13,8 +13,8 @@ var searchButton = document.getElementById('search-button');
 
 var hourForDailyTemperature = 12; // the temperature at noon is used for daily temperature
 
-var d = new Date()
-var timezoneOffset = d.getTimezoneOffset();
+
+var timezoneOffset = new Date().getTimezoneOffset();
 
 var apiError = ''; // non empty string when an api error occurs - globally scoped because it is accessed in numerous closures
 var loading = false; // application state to indicate if an api request is being handled
@@ -342,6 +342,7 @@ function updateTodayUI(weatherData) {
     for (var i = 0; i < weatherData.weatherIcons.length; ++i) {
         var iconCode = weatherData.weatherIcons[i];
         var weatherIcon = createWeatherIcon(iconCode);
+        weatherIcon.classList.add('bg-secondary', 'p-2', 'rounded-1', 'ms-3')
 
         headingElement.append(weatherIcon);
     }
