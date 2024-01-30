@@ -1,7 +1,7 @@
 // API Key
 var apiKey = '60138034af71780e3420402cea540efb';
 
-var geoApiURLPrefix = 'http://api.openweathermap.org/geo/1.0/direct?';
+var geoApiURLPrefix = 'https://api.openweathermap.org/geo/1.0/direct?';
 var currentWeatherApiURLPrefix = 'https://api.openweathermap.org/data/2.5/weather?';
 var forecastWeatherApiURLPrefix = 'https://api.openweathermap.org/data/2.5/forecast?';
 
