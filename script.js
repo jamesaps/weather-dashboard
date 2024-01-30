@@ -347,10 +347,6 @@ function clearElement(element) {
     element.innerHTML = '';
 }
 
-(async () => {
-    searchForWeatherByLocation('arizona');
-})();
-
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
