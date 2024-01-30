@@ -18,14 +18,58 @@ var timezoneOffset = d.getTimezoneOffset();
 
 var apiError = ''; // non empty string when an api error occurs - globally scoped because it is accessed in numerous closures
 var loading = false; // application state to indicate if an api request is being handled
-var sleepTime = 2000; // configures how many milliseconds to sleep for when function is called
+var sleepTime = 1000; // configures how many milliseconds to sleep for when function is called
+var previousSearchLimit = 10; // max number of locations to display to user that were previously searched
 
 var searchForm = document.getElementById('search-form');
+
+var localStorageCoordinates = [];
 
 if (searchForm.attachEvent) {
     searchForm.attachEvent('submit', processSearch)
 } else {
     searchForm.addEventListener('submit', processSearch);
+}
+
+setUpLocalStores();
+renderPreviouslySearchedLocations();
+
+function setUpLocalStores() {
+    var coordinates = localStorage.getItem('coordinates');
+
+    if (coordinates !== null) {
+        localStorageCoordinates = JSON.parse(coordinates);
+    }
+}
+
+function renderPreviouslySearchedLocations() {
+    if (localStorageCoordinates.length === 0) {
+        return;
+    }
+
+    var historyContainer = document.getElementById('history');
+    clearElement(historyContainer);
+
+    var historyHr = document.getElementById('history-hr');
+    historyHr.classList.remove('d-none');
+
+    for (var i = 0, j = localStorageCoordinates.length - 1; i < previousSearchLimit && j >= 0; ++i, --j) {
+        var locationName = localStorageCoordinates[j].name;
+        var trimmedLocationName = localStorageCoordinates[j].trimmedName;
+
+        var historyButton = document.createElement('button');
+        historyButton.classList.add('btn', 'btn-secondary', 'mb-2');
+        historyButton.setAttribute('type', 'button');
+
+        historyButton.dataset.name = trimmedLocationName;
+        historyButton.textContent = locationName;
+
+        historyButton.addEventListener('click', function (event) {
+            searchForWeatherByLocation(event.target.dataset.name);
+        });
+
+        historyContainer.appendChild(historyButton);
+    }
 }
 
 function processSearch(event) {
@@ -117,7 +161,7 @@ async function getCurrentWeatherData(coordinates) {
     var weatherData = await response.json();
 
     // offset date to show weather-local timezone despite dayjs being configured to user-local timezone
-    var date = dayjs(weatherData.dt * 1000 + weatherData.timezone * 1000 + timezoneOffset * 60 * 1000)
+    var date = dayjs(weatherData.dt * 1000 + weatherData.timezone * 1000 + timezoneOffset * 60 * 1000);
 
     currentWeatherData.location = coordinates.name;
     currentWeatherData.date = date;
@@ -161,15 +205,14 @@ function convertMpsToKph(mps) {
 function getDailyForecastAtHour(forecast, hour) {
     var dailyForecast = [];
 
-    var timezoneOffset = forecast.city.timezone; // offset from UTC in seconds
-
     for (var i = 0; i < forecast.list.length; ++i) {
-        var forecastInstance = forecast.list[i]
+        var forecastInstance = forecast.list[i];
 
         // gets time local to weather location
-        var time = dayjs(forecastInstance.dt_txt);
+        var time = dayjs(forecastInstance.dt * 1000 + forecast.city.timezone * 1000 + timezoneOffset * 60 * 1000);
 
-        if (time.hour() === hour) {
+        // API returns a temperature value each 3 hours, so we cover a 3-hour period from the time we specified in configuration (hourForDailyTemperature)
+        if (time.hour() >= hourForDailyTemperature && time.hour() < hourForDailyTemperature + 3) {
             dailyForecast.push({
                 time: time,
                 temperature: convertTemperatureInKtoC(forecastInstance.main.temp).toFixed(2),
@@ -196,7 +239,15 @@ async function searchForWeatherByLocation(location) {
     await sleep(sleepTime);
 
     try {
-        var locationCoordinates = await getLatAndLonByLocationName(location);
+        var locationCoordinates = getLocationCoordinatesFromLocalStorage(location);
+
+        if (locationCoordinates === undefined) { // if not found in local storage
+            await sleep(sleepTime * 1.5); // emulate network connections taking longer
+
+            locationCoordinates = await getLatAndLonByLocationName(location);
+
+            addLocationCoordinatesToLocalStorage(location, locationCoordinates);
+        }
 
         var [weatherData, forecastData] = await Promise.all([
             getCurrentWeatherData(locationCoordinates), get5DayForecast(locationCoordinates)]);
@@ -212,11 +263,50 @@ async function searchForWeatherByLocation(location) {
             alert(error);
         }
 
+        throw (error)
+
         resetUI();
     }
 
     searchButton.disabled = false;
     loading = false;
+}
+
+function getLocationCoordinatesFromLocalStorage(location) {
+    var locationTrimmedToLowerCase = location.trim().toLowerCase();
+    renderPreviouslySearchedLocations();
+
+    var coordinates = localStorageCoordinates.find((element) => element.trimmedName === locationTrimmedToLowerCase);
+
+    // Move coordinates to end of the storage so they appear first in history list even
+    if (coordinates !== undefined) {
+        localStorageCoordinates = localStorageCoordinates.filter(element => element.trimmedName !== locationTrimmedToLowerCase);
+
+        localStorageCoordinates.push(coordinates);
+        saveLocationCoordinatesToLocalStorage();
+    }
+
+    return coordinates;
+}
+
+function addLocationCoordinatesToLocalStorage(location, coordinates) {
+    var locationTrimmedToLowerCase = location.trim().toLowerCase();
+
+    if (getLocationCoordinatesFromLocalStorage(location) !== undefined) {
+        return;
+    }
+
+    coordinates.trimmedName = locationTrimmedToLowerCase;
+
+    localStorageCoordinates.push(coordinates);
+    saveLocationCoordinatesToLocalStorage();
+}
+
+function saveLocationCoordinatesToLocalStorage() {
+    var localStorageCoordinatesStringified = JSON.stringify(localStorageCoordinates);
+
+    localStorage.setItem('coordinates', localStorageCoordinatesStringified);
+    renderPreviouslySearchedLocations();
 }
 
 function resetUI() {
@@ -225,7 +315,7 @@ function resetUI() {
 
     var headingElement = document.createElement('h3');
     headingElement.classList.add('p-3', 'text-center')
-    headingElement.textContent = 'Search for weather forecasts '
+    headingElement.textContent = 'Search for weather forecasts ';
     todaySection.append(headingElement);
 
     var subHeadingElement = document.createElement('span');
@@ -307,7 +397,7 @@ function updateForecastUI(forecastData) {
     fluidContainer.appendChild(containerRow);
 
     for (var i = 0; i < forecastData.length && i < 5; ++i) {
-        var forecastDateFormattedAsString = forecastData[i].time.format('DD/MM/YYYY')
+        var forecastDateFormattedAsString = forecastData[i].time.format('DD/MM/YYYY');
 
         var flexContainer = document.createElement('div');
         flexContainer.classList.add('col-md', 'd-flex', 'align-items-stretch', 'ps-0');
