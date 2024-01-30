@@ -102,7 +102,7 @@ function putApplicationInLoadingState() {
     todaySection.appendChild(spinnerContainer);
 
     var spinnerBorder = document.createElement('div');
-    spinnerBorder.classList.add('spinner-border', 'text-secondary');
+    spinnerBorder.classList.add('spinner-border', 'text-primary');
     spinnerBorder.setAttribute('role', 'status');
     spinnerContainer.appendChild(spinnerBorder);
 }
