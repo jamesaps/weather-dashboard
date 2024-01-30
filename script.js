@@ -388,19 +388,15 @@ function updateForecastUI(forecastData) {
     forecastHeading.textContent = '5-Day Forecast:';
     forecastSection.appendChild(forecastHeading);
 
-    var fluidContainer = document.createElement('div');
-    fluidContainer.classList.add('container-fluid');
-    forecastSection.appendChild(fluidContainer);
-
     var containerRow = document.createElement('div');
     containerRow.classList.add('row');
-    fluidContainer.appendChild(containerRow);
+    forecastSection.appendChild(containerRow);
 
     for (var i = 0; i < forecastData.length && i < 5; ++i) {
         var forecastDateFormattedAsString = forecastData[i].time.format('DD/MM/YYYY');
 
         var flexContainer = document.createElement('div');
-        flexContainer.classList.add('col-md', 'd-flex', 'align-items-stretch', 'ps-0');
+        flexContainer.classList.add('col-md', 'd-flex', 'align-items-stretch');
 
         containerRow.appendChild(flexContainer);
 
