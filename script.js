@@ -2,7 +2,8 @@
 var apiKey = '60138034af71780e3420402cea540efb';
 
 var geoApiURLPrefix = 'http://api.openweathermap.org/geo/1.0/direct?';
-var currentWeatherApiURLPrefix = 'https://api.openweathermap.org/data/2.5/weather';
+var currentWeatherApiURLPrefix = 'https://api.openweathermap.org/data/2.5/weather?';
+var forecastWeatherApiURLPrefix = 'https://api.openweathermap.org/data/2.5/forecast?';
 
 async function getLatAndLonByLocationName(location) {
     // instantiate return object
@@ -37,8 +38,7 @@ async function getLatAndLonByLocationName(location) {
 
         return coordinates;
     } catch (error) {
-        // Advise user of error - this will be updated to actually propagate the error to the context that calls this function.
-        alert(error);
+        throw error;
     }
 }
 
@@ -47,7 +47,7 @@ async function getCurrentWeatherData(lat, lon) {
     var currentWeatherData = {};
 
     // construct url using user provided latitude and longitude
-    var url = currentWeatherApiURLPrefix + `?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+    var url = currentWeatherApiURLPrefix + `lat=${lat}&lon=${lon}&appid=${apiKey}`;
 
     try {
         var response = await fetch(url);
@@ -67,7 +67,28 @@ async function getCurrentWeatherData(lat, lon) {
 
         return currentWeatherData;
     } catch (error) {
-        alert(error);
+        throw error;
+    }
+}
+
+async function get5DayForecast(lat, lon) {
+    var forecast = [];
+
+    // construct url
+    var url = forecastWeatherApiURLPrefix + `lat=${lat}&lon=${lon}&appid=${apiKey}`;
+
+    try {
+        var response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error(response.statusText);
+        }
+
+        var forecastData = await response.json();
+
+        return forecastData;
+    } catch (error) {
+        throw error;
     }
 }
 
@@ -81,8 +102,36 @@ function convertMpsToKph(mps) {
     return mps * 3.6;
 }
 
+function getDailyForecastAtHour(forecast, hour) {
+    var dailyForecast = [];
+
+    var timezoneOffset = forecast.city.timezone; // offset from UTC in seconds
+
+    for (var i = 0; i < forecast.list.length; ++i) {
+        var forecastInstance = forecast.list[i]
+
+        // gets time local to weather location
+        var time = dayjs(forecastInstance.dt_txt);
+
+        if (time.hour() === hour) {
+            dailyForecast.push({
+                time: time,
+                temperature: convertTemperatureInKtoC(forecastInstance.main.temp),
+                wind: convertMpsToKph(forecastInstance.wind.speed),
+                humidity: forecastInstance.main.humidity,
+                weatherIcon: forecastInstance.weather.icon
+            });
+        }
+    }
+
+    return dailyForecast;
+}
+
 (async () => {
     var londonCoordinates = await getLatAndLonByLocationName('London');
-    var currentWeatherData = getCurrentWeatherData(londonCoordinates.lat, londonCoordinates.lon);
+    var currentWeather = await getCurrentWeatherData(londonCoordinates.lat, londonCoordinates.lon);
+    var fiveDayForecast = await get5DayForecast(londonCoordinates.lat, londonCoordinates.lon);
+
+    getDailyForecastAtHour(fiveDayForecast, 12);
 })();
 
