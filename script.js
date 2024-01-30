@@ -5,7 +5,12 @@ var geoApiURLPrefix = 'http://api.openweathermap.org/geo/1.0/direct?';
 var currentWeatherApiURLPrefix = 'https://api.openweathermap.org/data/2.5/weather?';
 var forecastWeatherApiURLPrefix = 'https://api.openweathermap.org/data/2.5/forecast?';
 
+var weatherApiImagePrefix = 'https://openweathermap.org/img/wn/'
+
 var hourForDailyTemperature = 12;
+
+var d = new Date()
+var timezoneOffset = d.getTimezoneOffset();
 
 var apiError = '';
 
@@ -37,8 +42,9 @@ async function getLatAndLonByLocationName(location) {
         throw new Error(`Location ${location} was not recognised.`)
     }
 
-    var { lat, lon } = locations[0];
+    var { name, lat, lon } = locations[0];
 
+    coordinates.name = name;
     coordinates.lat = lat;
     coordinates.lon = lon;
 
@@ -46,12 +52,12 @@ async function getLatAndLonByLocationName(location) {
 
 }
 
-async function getCurrentWeatherData(lat, lon) {
+async function getCurrentWeatherData(coordinates) {
     // instantiate current weather data return object
     var currentWeatherData = {};
 
     // construct url using user provided latitude and longitude
-    var url = currentWeatherApiURLPrefix + `lat=${lat}&lon=${lon}&appid=${apiKey}`;
+    var url = currentWeatherApiURLPrefix + `lat=${coordinates.lat}&lon=${coordinates.lon}&appid=${apiKey}`;
 
     var response = await fetch(url);
 
@@ -62,20 +68,24 @@ async function getCurrentWeatherData(lat, lon) {
 
     var weatherData = await response.json();
 
-    currentWeatherData.temperature = convertTemperatureInKtoC(weatherData.main.temp); // API returns weather in Kelvin so we convert to Celsius using a helper function before returning
-    currentWeatherData.wind = convertMpsToKph(weatherData.wind.speed); // API returns m/s so we convert to kph first
+    // offset date to show weather-local timezone despite dayjs being configured to user-local timezone
+    var date = dayjs(weatherData.dt * 1000 + weatherData.timezone * 1000 + timezoneOffset * 60 * 1000)
+
+    currentWeatherData.location = coordinates.name;
+    currentWeatherData.date = date;
+    currentWeatherData.temperature = convertTemperatureInKtoC(weatherData.main.temp).toFixed(2); // API returns weather in Kelvin so we convert to Celsius using a helper function before returning
+    currentWeatherData.wind = convertMpsToKph(weatherData.wind.speed).toFixed(2); // API returns m/s so we convert to kph first
     currentWeatherData.humidity = weatherData.main.humidity;
-    currentWeatherData.weatherIcon = weatherData.weather.icon;
+    currentWeatherData.weatherIcons = weatherData.weather.map(condition => condition.icon);
 
     return currentWeatherData;
-
 }
 
-async function get5DayForecast(lat, lon) {
+async function get5DayForecast(coordinates) {
     var forecast = [];
 
     // construct url
-    var url = forecastWeatherApiURLPrefix + `lat=${lat}&lon=${lon}&appid=${apiKey}`;
+    var url = forecastWeatherApiURLPrefix + `lat=${coordinates.lat}&lon=${coordinates.lon}&appid=${apiKey}`;
 
     var response = await fetch(url);
 
@@ -85,6 +95,7 @@ async function get5DayForecast(lat, lon) {
     }
 
     var forecastData = await response.json();
+    forecastData.location = coordinates.name;
 
     return forecastData;
 }
@@ -113,10 +124,10 @@ function getDailyForecastAtHour(forecast, hour) {
         if (time.hour() === hour) {
             dailyForecast.push({
                 time: time,
-                temperature: convertTemperatureInKtoC(forecastInstance.main.temp),
-                wind: convertMpsToKph(forecastInstance.wind.speed),
+                temperature: convertTemperatureInKtoC(forecastInstance.main.temp).toFixed(2),
+                wind: convertMpsToKph(forecastInstance.wind.speed).toFixed(2),
                 humidity: forecastInstance.main.humidity,
-                weatherIcon: forecastInstance.weather.icon
+                weatherIcons: forecastInstance.weather.map(condition => condition.icon)
             });
         }
     }
@@ -130,11 +141,11 @@ async function searchForWeatherByLocation(location) {
     try {
         var locationCoordinates = await getLatAndLonByLocationName(location);
 
-        getCurrentWeatherData(locationCoordinates.lat, locationCoordinates.lon).then((weatherData) => {
-            updateWeatherUI(weatherData);
+        getCurrentWeatherData(locationCoordinates).then((weatherData) => {
+            updateTodayUI(weatherData);
         });
 
-        get5DayForecast(locationCoordinates.lat, locationCoordinates.lon).then((forecastData) => {
+        get5DayForecast(locationCoordinates).then((forecastData) => {
             var forecastSummary = getDailyForecastAtHour(forecastData, hourForDailyTemperature);
             updateForecastUI(forecastSummary);
         });
@@ -152,21 +163,67 @@ function updateApiError(newError) {
     }
 }
 
-function updateWeatherUI(weatherData) {
+function updateTodayUI(weatherData) {
+    var todaySection = document.getElementById('today');
 
+    clearElement(todaySection);
+
+    var todayDateFormattedAsString = weatherData.date.format('DD/MM/YYYY');
+
+
+    var heading = document.createElement('h2');
+    heading.classList.add('mb-3');
+    heading.classList.add('fw-bold');
+    heading.textContent = `${weatherData.location} (${todayDateFormattedAsString})`;
+
+    for (var i = 0; i < weatherData.weatherIcons.length; ++i) {
+        var iconCode = weatherData.weatherIcons[i];
+        var weatherIconUrl = `${weatherApiImagePrefix}${iconCode}@2x.png`
+
+        var weatherIcon = document.createElement('img');
+        weatherIcon.setAttribute('src', weatherIconUrl);
+        weatherIcon.setAttribute('height', '50px');
+        weatherIcon.setAttribute('alt', 'weather icon');
+
+        heading.append(weatherIcon);
+    }
+
+    todaySection.appendChild(heading);
+
+    var temperatureString = `Temp: ${weatherData.temperature} °C`;
+    var windString = `Wind: ${weatherData.wind} km/h`;
+    var humidityString = `Humidity: ${weatherData.humidity}%`;
+
+    [temperatureString, windString, humidityString].forEach(contents => {
+        createAndAppendWeatherDetail(contents, todaySection);
+    })
+}
+
+function createAndAppendWeatherDetail(contents, destination) {
+    var weatherDetail = document.createElement('p');
+    weatherDetail.classList.add('weather-detail');
+    weatherDetail.textContent = contents;
+
+    destination.appendChild(weatherDetail);
 }
 
 function updateForecastUI(forecastData) {
+    var forecastSection = document.getElementById('forecast');
 
+    clearElement(forecastSection);
+}
+
+function clearElement(element) {
+    element.innerHTML = '';
 }
 
 (async () => {
     var londonCoordinates = await getLatAndLonByLocationName('London');
-    var currentWeather = await getCurrentWeatherData(londonCoordinates.lat, londonCoordinates.lon);
-    var fiveDayForecast = await get5DayForecast(londonCoordinates.lat, londonCoordinates.lon);
+    var currentWeather = await getCurrentWeatherData(londonCoordinates);
+    var fiveDayForecast = await get5DayForecast(londonCoordinates);
 
     getDailyForecastAtHour(fiveDayForecast, 12);
 
-    searchForWeatherByLocation('Location')
+    searchForWeatherByLocation('Adelaide')
 })();
 
