@@ -13,7 +13,6 @@ var searchButton = document.getElementById('search-button');
 
 var hourForDailyTemperature = 12; // the temperature at noon is used for daily temperature
 
-
 var timezoneOffset = new Date().getTimezoneOffset();
 
 var apiError = ''; // non empty string when an api error occurs - globally scoped because it is accessed in numerous closures
@@ -132,7 +131,7 @@ async function getLatAndLonByLocationName(location) {
 
     if (locations.length === 0) {
         updateApiError('Location not found.');
-        throw new Error(`Location ${location} was not recognised.`)
+        throw new Error(`Location ${location} was not recognised.`);
     }
 
     var { name, lat, lon } = locations[0];
@@ -264,8 +263,6 @@ async function searchForWeatherByLocation(location) {
         } else {
             alert(error);
         }
-
-        throw (error);
     }
 
     searchButton.disabled = false;
@@ -312,6 +309,9 @@ function saveLocationCoordinatesToLocalStorage() {
 function resetUI() {
     clearElement(todaySection);
     clearElement(forecastSection);
+
+    searchButton.disabled = false;
+    loading = false;
 
     var headingElement = document.createElement('h3');
     headingElement.classList.add('p-3', 'text-center')
