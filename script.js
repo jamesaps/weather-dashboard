@@ -310,9 +310,6 @@ function resetUI() {
     clearElement(todaySection);
     clearElement(forecastSection);
 
-    searchButton.disabled = false;
-    loading = false;
-
     var headingElement = document.createElement('h3');
     headingElement.classList.add('p-3', 'text-center')
     headingElement.textContent = 'Search for weather forecasts ';
