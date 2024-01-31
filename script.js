@@ -257,15 +257,15 @@ async function searchForWeatherByLocation(location) {
         updateTodayUI(weatherData);
         updateForecastUI(forecastSummary);
     } catch (error) {
+        resetUI();
+
         if (apiError !== '') {
             alert(apiError);
         } else {
             alert(error);
         }
 
-        throw (error)
-
-        resetUI();
+        throw (error);
     }
 
     searchButton.disabled = false;
